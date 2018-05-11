@@ -6,11 +6,15 @@ handshake.
 """
 
 import functools
-import logging
+import io
 import json
+import logging
 import os
 
+import boto3
+
 SLACK_APP_TOKEN = os.environ['SLACK_APP_TOKEN']
+HANDLER_LAMBDA_ARN = os.environ['AWS_HANDLER_LAMBDA']
 
 
 logger = logging.getLogger()
@@ -35,6 +39,19 @@ forbidden = functools.partial(_create_response, status_code=403)
 ok_response = functools.partial(_create_response, status_code=200)
 
 
+def _invoke_handler_lambda(event):
+    payload = io.BytesIO(json.dumps(event, ensure_ascii=False).encode('utf8'))
+
+    client = boto3.client('lambda')
+    res = client.invoke(
+        FunctionName=HANDLER_LAMBDA_ARN,
+        InvocationType='Event',
+        Payload=payload
+    )
+
+    logging.info("Invoked lambda: %s", res)
+
+
 def lambda_handler(event: dict, context):
     """Handle the Slack request and answer the challenge."""
     logger.info("Received event: %s", json.dumps(event))
@@ -57,6 +74,6 @@ def lambda_handler(event: dict, context):
         # invoke another Lambda for processing
         return ok_response(body={'challenge': slack_message['challenge']})
 
-    # TODO Forward the request to the next lambda function
+    _invoke_handler_lambda(event)
 
     return ok_response()
