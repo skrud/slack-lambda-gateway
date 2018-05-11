@@ -73,6 +73,11 @@ def lambda_handler(event: dict, context):
         # We just want to return the challenge here so there's no need to
         # invoke another Lambda for processing
         return ok_response(body={'challenge': slack_message['challenge']})
+    elif 'subtype' in slack_message['event'] and \
+            slack_message['event']['subtype'] == 'bot_message':
+        # Ignore messages from bots to avoid infinite loops
+        logging.info("Ignoring bot_message.")
+        return ok_response()
 
     _invoke_handler_lambda(event)
 
